@@ -21,13 +21,13 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-title: "유튜버 랜덤 추천",
-  description: "특정 유튜버의 영상을 랜덤하게 추천받으세요!",
+title: "이도원 랜덤 피커",
+  description: "이도원 영상 랜덤 추천",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "유랜추",
+    title: "random",
   },
 };
 

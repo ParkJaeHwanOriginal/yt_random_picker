@@ -1,71 +1,136 @@
 "use client";
+
 import { useState, useEffect } from "react";
 
+// 영상 데이터의 타입 정의
+interface VideoItem {
+  id: string;
+  title: string;
+  thumb: string;
+  date: string;
+}
+
 export default function Home() {
-  const [videos, setVideos] = useState([]);
-  const [displayVideos, setDisplayVideos] = useState([]);
+  const [videos, setVideos] = useState<VideoItem[]>([]);
+  const [displayVideos, setDisplayVideos] = useState<VideoItem[]>([]);
   const [loading, setLoading] = useState(false);
 
   // 초기 로드: LocalStorage 확인 및 업데이트 체크
   const initApp = async () => {
+    if (typeof window === "undefined") return; // SSR 방지
+
     setLoading(true);
-    const localData = JSON.parse(localStorage.getItem("dowon_videos") || "null");
+    const localRaw = localStorage.getItem("dowon_videos");
+    const localData: VideoItem[] | null = localRaw ? JSON.parse(localRaw) : null;
     
     try {
-      // 1. 서버에 현재 영상 개수 물어보기 (1유닛)
+      // 1. 서버에 현재 영상 개수 확인 (1유닛)
       const countRes = await fetch('/api/youtube?type=checkCount');
       const { count } = await countRes.json();
 
-      // 2. 로컬 데이터가 없거나 개수가 다르면 전체 새로고침 (14유닛)
+      // 2. 데이터가 없거나 개수가 다르면 전체 새로고침 (약 14유닛)
       if (!localData || localData.length !== count) {
         const listRes = await fetch('/api/youtube?type=fetchAll');
-        const newList = await listRes.json();
+        const newList: VideoItem[] = await listRes.json();
+        
         localStorage.setItem("dowon_videos", JSON.stringify(newList));
         setVideos(newList);
         pickRandom(newList);
       } else {
-        // 데이터가 정확하면 로컬 것 그대로 사용 (0유닛!)
+        // 데이터가 일치하면 로컬 데이터 사용 (0유닛)
         setVideos(localData);
         pickRandom(localData);
       }
-    } catch (e) { console.error("Update failed", e); }
-    setLoading(false);
+    } catch (e) {
+      console.error("데이터 동기화 실패:", e);
+      if (localData) {
+        setVideos(localData);
+        pickRandom(localData);
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const pickRandom = (list) => {
+  // 랜덤 선택 로직 (6:4 비율)
+  const pickRandom = (list: VideoItem[]) => {
+    if (!list || list.length === 0) return;
+
     const ratio = Math.floor(Math.random() * 10);
-    let selected;
-    if (ratio < 6) { // 과거 60%
-      const oldPart = list.slice(Math.floor(list.length * 0.3));
-      selected = oldPart.sort(() => 0.5 - Math.random()).slice(0, 5);
-    } else { // 최신 40%
-      const newPart = list.slice(0, Math.floor(list.length * 0.3));
-      selected = newPart.sort(() => 0.5 - Math.random()).slice(0, 5);
+    let selected: VideoItem[];
+
+    if (ratio < 6) { 
+      // 과거 60%
+      const startIndex = Math.floor(list.length * 0.3);
+      const oldPart = list.slice(startIndex);
+      selected = [...oldPart].sort(() => 0.5 - Math.random()).slice(0, 5);
+    } else { 
+      // 최신 40%
+      const endIndex = Math.floor(list.length * 0.3);
+      const newPart = list.slice(0, endIndex);
+      selected = [...newPart].sort(() => 0.5 - Math.random()).slice(0, 5);
     }
     setDisplayVideos(selected);
   };
 
-  useEffect(() => { initApp(); }, []);
+  useEffect(() => {
+    initApp();
+  }, []);
 
   return (
-    <main className="min-h-screen bg-gray-50 p-4">
-      {/* UI 부분은 이전과 동일, 버튼 클릭 시 pickRandom(videos)만 실행하면 유닛 소모 0! */}
-      <h1 className="text-center text-2xl font-bold text-red-600 mb-6">이도원 랜덤 픽커</h1>
-      
-      {loading ? <p className="text-center">데이터 동기화 중...</p> : (
-        <div className="max-w-md mx-auto space-y-4">
-          <button onClick={() => pickRandom(videos)} className="w-full bg-blue-600 text-white p-3 rounded-xl font-bold">
-            새로운 믹스로 뽑기 (유닛 소모 0)
-          </button>
-          
-          {displayVideos.map(vid => (
-            <div key={vid.id} onClick={() => window.location.href=`https://www.youtube.com/watch?v=${vid.id}`} className="bg-white rounded-2xl shadow-md overflow-hidden cursor-pointer">
-              <img src={vid.thumb} className="w-full aspect-video object-cover" />
-              <div className="p-4"><p className="font-bold line-clamp-2">{vid.title}</p></div>
+    <main className="min-h-screen bg-gray-50 flex flex-col items-center p-4 pb-20">
+      <div className="w-full max-w-md mt-6 space-y-6">
+        
+        {/* 헤더: 명칭 수정 */}
+        <header className="text-center space-y-1">
+          <h1 className="text-3xl font-black text-red-600 tracking-tighter">이도원 랜덤 피커</h1>
+        </header>
+
+        {loading ? (
+          <div className="flex flex-col items-center py-20 space-y-4">
+            <div className="w-10 h-10 border-4 border-red-600 border-t-transparent rounded-full animate-spin"></div>
+            <p className="text-gray-400 font-bold text-xs tracking-widest uppercase animate-pulse">Syncing Database...</p>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            
+            {/* 버튼: 명칭 수정 및 스타일링 */}
+            <button 
+              onClick={() => pickRandom(videos)}
+              className="w-full bg-red-600 text-white p-4 rounded-full font-black text-lg shadow-lg active:scale-95 transition-transform"
+            >
+              다른 영상
+            </button>
+
+            {/* 영상 리스트: 가로형 디자인으로 썸네일 축소 */}
+            <div className="space-y-3">
+              
+              {displayVideos.map((vid) => (
+                <div 
+                  key={vid.id} 
+                  onClick={() => window.location.href=`https://www.youtube.com/watch?v=${vid.id}`}
+                  className="bg-white rounded-2xl flex overflow-hidden shadow-sm border border-gray-100 cursor-pointer active:scale-[0.98] transition-all hover:bg-gray-50"
+                >
+                  {/* 썸네일 영역 축소 (w-1/3로 고정) */}
+                  <div className="relative w-1/3 flex-shrink-0">
+                    <img src={vid.thumb} className="w-full h-full object-cover aspect-[4/3]" alt="thumb" />
+                    <div className="absolute bottom-1 right-1 bg-black/70 text-white text-[8px] px-1.5 py-0.5 rounded font-bold backdrop-blur-sm">
+                      {new Date(vid.date).getFullYear()}
+                    </div>
+                  </div>
+                  
+                  {/* 제목 영역 */}
+                  <div className="p-4 flex items-center justify-start flex-1 overflow-hidden">
+                    <h3 className="font-bold text-gray-900 leading-snug line-clamp-2 text-sm">
+                      {vid.title}
+                    </h3>
+                  </div>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-      )}
+          </div>
+        )}
+      </div>
     </main>
   );
 }
