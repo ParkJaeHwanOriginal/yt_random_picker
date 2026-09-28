@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { kv } from '@vercel/kv';
+import { createClient } from 'redis';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,27 +9,30 @@ const DOWON_INFO = {
   uploadsId: "UUWq9wRjQXYC8i486uVLysUA"
 };
 
+// 🌟 REDIS_URL 환경변수를 사용하는 표준 Redis 클라이언트 연결
+const redisClient = createClient({
+  url: process.env.REDIS_URL
+});
+
+redisClient.on('error', (err) => console.log('Redis Client Error', err));
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const type = searchParams.get('type');
-  
+
   try {
-    // 1. 단순 영상 개수 대조
     if (type === 'checkCount') {
       const res = await fetch(`https://www.googleapis.com/youtube/v3/channels?part=statistics&id=${DOWON_INFO.channelId}&key=${API_KEY}`);
       const data = await res.json();
       return NextResponse.json({ count: parseInt(data.items[0].statistics.videoCount) });
     }
 
-    // 2. 전체 리스트 생성
     if (type === 'fetchAll') {
       let allVideos: any[] = [];
       let nextPageToken = "";
       
       for (let i = 0; i < 40; i++) {
-        // 백틱 구문 오류 해결: 삼항 연산자 내부를 일반 문자열 결합으로 변경
         const url = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId=${DOWON_INFO.uploadsId}&maxResults=50&key=${API_KEY}${nextPageToken ? '&pageToken=' + nextPageToken : ''}`;
-        
         const res = await fetch(url);
         const data = await res.json();
         
@@ -51,18 +54,23 @@ export async function GET(request: Request) {
       return NextResponse.json(formattedVideos);
     }
 
-    // 3. 특정 영상 클릭 시 조회수 1 증가
+    // ⭐ DB 작업이 필요할 때만 연결 (서버리스 환경 최적화)
+    if (!redisClient.isOpen) {
+      await redisClient.connect();
+    }
+
     if (type === 'increment') {
       const videoId = searchParams.get('videoId');
       if (videoId) {
-        await kv.zincrby('video_clicks', 1, videoId);
+        // 특정 영상의 조회수(점수) 1 증가
+        await redisClient.zIncrBy('video_clicks', 1, videoId);
       }
       return NextResponse.json({ success: true });
     }
 
-    // 4. Top 3 영상 ID 조회
     if (type === 'getTop') {
-      const topIds = await kv.zrange('video_clicks', 0, 2, { rev: true });
+      // 내림차순(REV)으로 점수가 가장 높은 3개 추출
+      const topIds = await redisClient.zRange('video_clicks', 0, 2, { REV: true });
       return NextResponse.json(topIds);
     }
 
