@@ -14,7 +14,10 @@ export default function Home() {
   const [displayVideos, setDisplayVideos] = useState<VideoItem[]>([]);
   const [topVideos, setTopVideos] = useState<VideoItem[]>([]);
   const [loading, setLoading] = useState(false);
-  const [isRefreshing, setIsRefreshing] = useState(false); // 갱신 상태 관리
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  
+  // 🌟 현재 선택된 탭 상태 관리 ('random' 또는 'top3')
+  const [activeTab, setActiveTab] = useState<'random' | 'top3'>('random');
 
   const initApp = async () => {
     if (typeof window === "undefined") return;
@@ -28,7 +31,7 @@ export default function Home() {
     if (localData && localData.length > 0) {
       setVideos(localData);
       pickRandom(localData);
-      fetchTopVideos(localData); // DB에서 Top 3 실시간 갱신
+      fetchTopVideos(localData);
       setLoading(false);
     } else {
       setLoading(true);
@@ -54,7 +57,7 @@ export default function Home() {
       console.error("Sync Error:", e);
     } finally {
       setLoading(false);
-      setIsRefreshing(false); // 갱신 완료 시 스피너 종료
+      setIsRefreshing(false);
     }
   };
 
@@ -110,7 +113,6 @@ export default function Home() {
     }
   };
 
-  // 통합된 기능: 랜덤 섞기 + Top 3 통신 갱신
   const handleRefresh = () => {
     setIsRefreshing(true);
     initApp();
@@ -158,77 +160,102 @@ export default function Home() {
             <p className="text-gray-400 font-bold text-xs uppercase animate-pulse tracking-widest">Database Syncing...</p>
           </div>
         ) : (
-          <div className="space-y-8">
-            <div className="space-y-4">
-              
-              {/* 통합된 '다른 영상' 버튼 */}
-              <button 
-                onClick={handleRefresh}
-                disabled={isRefreshing}
-                className="w-full bg-red-600 text-white p-4 rounded-full font-black text-xl shadow-lg active:scale-95 transition-all hover:bg-red-700 disabled:opacity-80 flex items-center justify-center gap-2"
-              >
-                {isRefreshing ? (
-                  <>
-                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    <span>새로고침 중...</span>
-                  </>
-                ) : (
-                  <span>다른 영상</span>
-                )}
-              </button>
+          <div className="space-y-6">
+            
+            {/* 🌟 통합 메인 버튼 (탭 상태에 따라 텍스트 변경) */}
+            <button 
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+              className="w-full bg-red-600 text-white p-4 rounded-full font-black text-xl shadow-lg active:scale-95 transition-all hover:bg-red-700 disabled:opacity-80 flex items-center justify-center gap-2"
+            >
+              {isRefreshing ? (
+                <>
+                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  <span>갱신 중...</span>
+                </>
+              ) : (
+                <span>{activeTab === 'random' ? '다른 영상' : '최신 순위 갱신'}</span>
+              )}
+            </button>
 
-              <div className="space-y-3">
-                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Recommended Mix</p>
-                <div className="grid grid-cols-2 gap-3">
-                  {displayVideos.map((vid) => (
-                    <div 
-                      key={vid.id} 
-                      onClick={() => handleVideoClick(vid.id)}
-                      className="bg-white rounded-2xl flex flex-col overflow-hidden shadow-sm border border-gray-100 cursor-pointer active:scale-[0.98] transition-all hover:shadow-md"
-                    >
-                      <div className="relative w-full aspect-video flex-shrink-0">
-                        <img src={vid.thumb} className="w-full h-full object-cover" alt="thumb" />
-                        <div className="absolute bottom-1 right-1 bg-black/70 text-white text-[10px] px-1.5 py-0.5 rounded font-bold backdrop-blur-sm">
-                          {new Date(vid.date).getFullYear()}
-                        </div>
-                      </div>
-                      <div className="p-3 flex items-start justify-start flex-1 overflow-hidden">
-                        <h3 className="font-bold text-gray-900 leading-snug line-clamp-2 text-sm">{vid.title}</h3>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
+            {/* 🌟 탭 스위치 UI (모바일 앱 스타일) */}
+            <div className="flex bg-gray-200 p-1 rounded-xl shadow-inner">
+              <button
+                onClick={() => setActiveTab('random')}
+                className={`flex-1 py-2.5 text-xs font-bold rounded-lg transition-all duration-200 ease-in-out ${
+                  activeTab === 'random' 
+                    ? 'bg-white text-red-600 shadow-sm transform scale-100' 
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                🎲 랜덤 추천
+              </button>
+              <button
+                onClick={() => setActiveTab('top3')}
+                className={`flex-1 py-2.5 text-xs font-bold rounded-lg transition-all duration-200 ease-in-out ${
+                  activeTab === 'top3' 
+                    ? 'bg-white text-orange-500 shadow-sm transform scale-100' 
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                🏆 Top 3 랭킹
+              </button>
             </div>
 
-            <hr className="border-gray-200" />
-
-            {topVideos.length > 0 && (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between px-1">
-                  <p className="text-[10px] font-black text-orange-500 uppercase tracking-widest">🏆 Most Picked Top 3</p>
-                </div>
-                <div className="grid grid-cols-1 gap-3">
-                  {topVideos.map((vid, index) => (
-                    <div 
-                      key={vid.id} 
-                      onClick={() => handleVideoClick(vid.id)}
-                      className="bg-white rounded-2xl flex overflow-hidden shadow-sm border border-orange-100 cursor-pointer active:scale-[0.98] transition-all hover:shadow-md hover:border-orange-200"
-                    >
-                      <div className="relative w-1/3 flex-shrink-0">
-                        <img src={vid.thumb} className="w-full h-full object-cover aspect-video" alt="thumb" />
-                        <div className="absolute top-1 left-1 bg-orange-500 text-white text-[10px] w-5 h-5 flex items-center justify-center rounded-full font-black shadow-sm">
-                          {index + 1}
+            {/* 🌟 탭 콘텐츠 영역 */}
+            <div className="pt-2">
+              
+              {/* 랜덤 추천 탭 콘텐츠 */}
+              {activeTab === 'random' && (
+                <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+                  <div className="grid grid-cols-2 gap-3">
+                    {displayVideos.map((vid) => (
+                      <div 
+                        key={vid.id} 
+                        onClick={() => handleVideoClick(vid.id)}
+                        className="bg-white rounded-2xl flex flex-col overflow-hidden shadow-sm border border-gray-100 cursor-pointer active:scale-[0.98] transition-all hover:shadow-md"
+                      >
+                        <div className="relative w-full aspect-video flex-shrink-0">
+                          <img src={vid.thumb} className="w-full h-full object-cover" alt="thumb" />
+                          <div className="absolute bottom-1 right-1 bg-black/70 text-white text-[10px] px-1.5 py-0.5 rounded font-bold backdrop-blur-sm">
+                            {new Date(vid.date).getFullYear()}
+                          </div>
+                        </div>
+                        <div className="p-3 flex items-start justify-start flex-1 overflow-hidden">
+                          <h3 className="font-bold text-gray-900 leading-snug line-clamp-2 text-sm">{vid.title}</h3>
                         </div>
                       </div>
-                      <div className="p-3 flex flex-col justify-center flex-1 overflow-hidden bg-orange-50/30">
-                        <h3 className="font-bold text-gray-900 leading-snug line-clamp-2 text-sm">{vid.title}</h3>
-                      </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+
+              {/* 명예의 전당 (Top 3) 탭 콘텐츠 */}
+              {activeTab === 'top3' && topVideos.length > 0 && (
+                <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 space-y-3">
+                  <div className="grid grid-cols-1 gap-3">
+                    {topVideos.map((vid, index) => (
+                      <div 
+                        key={vid.id} 
+                        onClick={() => handleVideoClick(vid.id)}
+                        className="bg-white rounded-2xl flex overflow-hidden shadow-sm border border-orange-100 cursor-pointer active:scale-[0.98] transition-all hover:shadow-md hover:border-orange-200"
+                      >
+                        <div className="relative w-1/3 flex-shrink-0">
+                          <img src={vid.thumb} className="w-full h-full object-cover aspect-video" alt="thumb" />
+                          <div className="absolute top-1 left-1 bg-orange-500 text-white text-[10px] w-5 h-5 flex items-center justify-center rounded-full font-black shadow-sm">
+                            {index + 1}
+                          </div>
+                        </div>
+                        <div className="p-3 flex flex-col justify-center flex-1 overflow-hidden bg-orange-50/30">
+                          <h3 className="font-bold text-gray-900 leading-snug line-clamp-2 text-sm">{vid.title}</h3>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
           </div>
         )}
       </div>
