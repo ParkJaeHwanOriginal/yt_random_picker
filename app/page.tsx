@@ -14,7 +14,7 @@ export default function Home() {
   const [displayVideos, setDisplayVideos] = useState<VideoItem[]>([]);
   const [topVideos, setTopVideos] = useState<VideoItem[]>([]);
   const [loading, setLoading] = useState(false);
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false); // 갱신 상태 관리
 
   const initApp = async () => {
     if (typeof window === "undefined") return;
@@ -28,14 +28,13 @@ export default function Home() {
     if (localData && localData.length > 0) {
       setVideos(localData);
       pickRandom(localData);
-      fetchTopVideos(localData);
+      fetchTopVideos(localData); // DB에서 Top 3 실시간 갱신
       setLoading(false);
     } else {
       setLoading(true);
     }
 
     try {
-      // ⭐ 브라우저 캐싱을 막기 위해 { cache: 'no-store' } 추가
       const countRes = await fetch(`/api/youtube?type=checkCount&mode=${mode}`, { cache: 'no-store' });
       const { count } = await countRes.json();
 
@@ -55,13 +54,12 @@ export default function Home() {
       console.error("Sync Error:", e);
     } finally {
       setLoading(false);
-      setIsRefreshing(false);
+      setIsRefreshing(false); // 갱신 완료 시 스피너 종료
     }
   };
 
   const fetchTopVideos = async (fullList: VideoItem[]) => {
     try {
-      // ⭐ Top 3 데이터도 캐싱 금지
       const res = await fetch('/api/youtube?type=getTop', { cache: 'no-store' });
       const topIds: string[] = await res.json();
 
@@ -112,7 +110,7 @@ export default function Home() {
     }
   };
 
-  // 수동 새로고침 버튼 핸들러
+  // 통합된 기능: 랜덤 섞기 + Top 3 통신 갱신
   const handleRefresh = () => {
     setIsRefreshing(true);
     initApp();
@@ -128,17 +126,6 @@ export default function Home() {
     <main className="min-h-screen bg-gray-50 flex flex-col items-center p-4 pb-20 text-gray-900">
       <div className="w-full max-w-md mt-6 space-y-8 relative">
         
-        {/* ⭐ 우측 상단 새로고침 버튼 */}
-        <button 
-          onClick={handleRefresh}
-          className={`absolute top-0 right-2 p-2 text-gray-400 hover:text-red-500 transition-all ${isRefreshing ? 'animate-spin text-red-500' : 'active:rotate-180'}`}
-          aria-label="새로고침"
-        >
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-          </svg>
-        </button>
-
         <header className="text-center space-y-2 pt-2">
           <h1 className="text-3xl font-black text-red-600 tracking-tighter italic">이도원 랜덤 피커</h1>
           
@@ -173,11 +160,21 @@ export default function Home() {
         ) : (
           <div className="space-y-8">
             <div className="space-y-4">
+              
+              {/* 통합된 '다른 영상' 버튼 */}
               <button 
-                onClick={() => pickRandom(videos)}
-                className="w-full bg-red-600 text-white p-4 rounded-full font-black text-xl shadow-lg active:scale-95 transition-all hover:bg-red-700"
+                onClick={handleRefresh}
+                disabled={isRefreshing}
+                className="w-full bg-red-600 text-white p-4 rounded-full font-black text-xl shadow-lg active:scale-95 transition-all hover:bg-red-700 disabled:opacity-80 flex items-center justify-center gap-2"
               >
-                다른 영상
+                {isRefreshing ? (
+                  <>
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    <span>새로고침 중...</span>
+                  </>
+                ) : (
+                  <span>다른 영상</span>
+                )}
               </button>
 
               <div className="space-y-3">
