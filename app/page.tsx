@@ -71,18 +71,38 @@ export default function Home() {
     initApp();
   }, []);
 
-  const latestVideoTitle = videos.length > 0 ? videos[0].title : "확인 중...";
+  // 전체 영상이 로드되었을 때 첫 번째(가장 최근) 영상을 가져옴
+  const latestVideo = videos.length > 0 ? videos[0] : null;
 
   return (
     <main className="min-h-screen bg-gray-50 flex flex-col items-center p-4 pb-20 text-gray-900">
       <div className="w-full max-w-md mt-6 space-y-6">
         
-        <header className="text-center space-y-1">
+        <header className="text-center space-y-2">
           <h1 className="text-3xl font-black text-red-600 tracking-tighter italic">이도원 랜덤 피커</h1>
-          <div className="mt-2 p-2 bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-            <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Current Latest Video</p>
-            <p className="text-[11px] font-bold text-gray-600 truncate px-2">{latestVideoTitle}</p>
-          </div>
+          
+          {/* 최신 영상 카드 UI */}
+          {latestVideo ? (
+            <div 
+              onClick={() => window.location.href=`https://www.youtube.com/watch?v=${latestVideo.id}`}
+              className="mt-4 text-left bg-white rounded-2xl flex overflow-hidden shadow-sm border border-red-100 cursor-pointer active:scale-[0.98] transition-all hover:shadow-md hover:border-red-200"
+            >
+              <div className="relative w-1/3 flex-shrink-0">
+                <img src={latestVideo.thumb} className="w-full h-full object-cover aspect-video" alt="latest video" />
+                <div className="absolute top-1 left-1 bg-red-600 text-white text-[8px] px-1.5 py-0.5 rounded font-black tracking-widest shadow-sm">
+                  LATEST
+                </div>
+              </div>
+              <div className="p-3 flex flex-col justify-center flex-1 overflow-hidden">
+                <p className="text-[9px] font-black text-red-500 uppercase tracking-widest mb-1">새로 올라온 영상</p>
+                <p className="font-bold text-gray-900 text-xs leading-snug line-clamp-2">{latestVideo.title}</p>
+              </div>
+            </div>
+          ) : (
+            <div className="mt-4 p-3 bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+              <p className="text-[10px] font-bold text-gray-400 animate-pulse">최신 영상 확인 중...</p>
+            </div>
+          )}
         </header>
 
         {loading && videos.length === 0 ? (
@@ -102,7 +122,6 @@ export default function Home() {
             <div className="space-y-3">
               <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Recommended Mix</p>
               
-              {/* 그리드 레이아웃 적용 (2열) */}
               <div className="grid grid-cols-2 gap-3">
                 {displayVideos.map((vid) => (
                   <div 
@@ -110,7 +129,6 @@ export default function Home() {
                     onClick={() => window.location.href=`https://www.youtube.com/watch?v=${vid.id}`}
                     className="bg-white rounded-2xl flex flex-col overflow-hidden shadow-sm border border-gray-100 cursor-pointer active:scale-[0.98] transition-all hover:shadow-md"
                   >
-                    {/* 상단 썸네일 (비율 16:9 유지) */}
                     <div className="relative w-full aspect-video flex-shrink-0">
                       <img src={vid.thumb} className="w-full h-full object-cover" alt="thumb" />
                       <div className="absolute bottom-1 right-1 bg-black/70 text-white text-[10px] px-1.5 py-0.5 rounded font-bold backdrop-blur-sm">
@@ -118,7 +136,6 @@ export default function Home() {
                       </div>
                     </div>
                     
-                    {/* 하단 텍스트 (폰트 사이즈 확대) */}
                     <div className="p-3 flex items-start justify-start flex-1 overflow-hidden">
                       <h3 className="font-bold text-gray-900 leading-snug line-clamp-2 text-sm">{vid.title}</h3>
                     </div>
