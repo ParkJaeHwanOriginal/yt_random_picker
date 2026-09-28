@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { kv } from '@vercel/kv';
 
+export const dynamic = 'force-dynamic';
+
 const API_KEY = process.env.YOUTUBE_API_KEY;
 const DOWON_INFO = {
   channelId: "UCWq9wRjQXYC8i486uVLysUA",
