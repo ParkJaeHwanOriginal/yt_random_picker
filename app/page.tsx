@@ -103,11 +103,16 @@ export default function Home() {
     setDisplayVideos(selected);
   };
 
-  // 영상 클릭 시 서버에 클릭 수를 1 증가시키고 유튜브로 이동
-  const handleVideoClick = (videoId: string) => {
-    // 배경에서 조용히 API 호출 (사용자는 기다리지 않음)
-    fetch(`/api/youtube?type=increment&videoId=${videoId}`).catch(console.error);
-    window.location.href = `https://www.youtube.com/watch?v=${videoId}`;
+const handleVideoClick = async (videoId: string) => {
+    try {
+      // 서버에 클릭 수 증가 요청을 먼저 확실히 보냅니다.
+      await fetch(`/api/youtube?type=increment&videoId=${videoId}`);
+    } catch (error) {
+      console.error("카운트 증가 에러:", error);
+    } finally {
+      // 통신이 완료되면(성공하든 실패하든) 유튜브로 이동합니다.
+      window.location.href = `https://www.youtube.com/watch?v=${videoId}`;
+    }
   };
 
   useEffect(() => {
