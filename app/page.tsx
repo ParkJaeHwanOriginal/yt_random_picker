@@ -16,7 +16,6 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   
-  // 🌟 현재 선택된 탭 상태 관리 ('random' 또는 'top3')
   const [activeTab, setActiveTab] = useState<'random' | 'top3'>('random');
 
   const initApp = async () => {
@@ -125,16 +124,20 @@ export default function Home() {
   const latestVideo = videos.length > 0 ? videos[0] : null;
 
   return (
-    <main className="min-h-screen bg-gray-50 flex flex-col items-center p-4 pb-20 text-gray-900">
-      <div className="w-full max-w-md mt-6 space-y-8 relative">
+    // 하단 패딩(pb) 축소: pb-20 -> pb-8
+    <main className="min-h-screen bg-gray-50 flex flex-col items-center p-4 pb-8 text-gray-900 overflow-hidden">
+      {/* 전체 섹션 간격(space-y) 축소: mt-6 -> mt-4, space-y-8 -> space-y-5 */}
+      <div className="w-full max-w-md mt-4 space-y-5 relative">
         
-        <header className="text-center space-y-2 pt-2">
+        {/* 헤더 섹션 간격 축소: space-y-2 -> space-y-1 */}
+        <header className="text-center space-y-1 pt-1">
           <h1 className="text-3xl font-black text-red-600 tracking-tighter italic">이도원 랜덤 피커</h1>
           
           {latestVideo ? (
             <div 
               onClick={() => handleVideoClick(latestVideo.id)}
-              className="mt-4 text-left bg-white rounded-2xl flex overflow-hidden shadow-sm border border-red-100 cursor-pointer active:scale-[0.98] transition-all hover:shadow-md hover:border-red-200"
+              // 상단 여백 축소: mt-4 -> mt-2
+              className="mt-2 text-left bg-white rounded-2xl flex overflow-hidden shadow-sm border border-red-100 cursor-pointer active:scale-[0.98] transition-all hover:shadow-md hover:border-red-200"
             >
               <div className="relative w-1/3 flex-shrink-0">
                 <img src={latestVideo.thumb} className="w-full h-full object-cover aspect-video" alt="latest video" />
@@ -148,25 +151,26 @@ export default function Home() {
               </div>
             </div>
           ) : (
-            <div className="mt-4 p-3 bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+            <div className="mt-2 p-3 bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
               <p className="text-[10px] font-bold text-gray-400 animate-pulse">최신 영상 확인 중...</p>
             </div>
           )}
         </header>
 
         {loading && videos.length === 0 ? (
-          <div className="flex flex-col items-center py-20 space-y-4">
+          <div className="flex flex-col items-center py-10 space-y-4">
             <div className="w-10 h-10 border-4 border-red-600 border-t-transparent rounded-full animate-spin"></div>
             <p className="text-gray-400 font-bold text-xs uppercase animate-pulse tracking-widest">Database Syncing...</p>
           </div>
         ) : (
-          <div className="space-y-6">
+          // 메인 콘텐츠 간격 축소: space-y-6 -> space-y-4
+          <div className="space-y-4">
             
-            {/* 🌟 통합 메인 버튼 (탭 상태에 따라 텍스트 변경) */}
+            {/* 🌟 메인 버튼 높이 및 폰트 축소: p-4 -> py-3, text-xl -> text-lg */}
             <button 
               onClick={handleRefresh}
               disabled={isRefreshing}
-              className="w-full bg-red-600 text-white p-4 rounded-full font-black text-xl shadow-lg active:scale-95 transition-all hover:bg-red-700 disabled:opacity-80 flex items-center justify-center gap-2"
+              className="w-full bg-red-600 text-white py-3 rounded-full font-black text-lg shadow-lg active:scale-95 transition-all hover:bg-red-700 disabled:opacity-80 flex items-center justify-center gap-2"
             >
               {isRefreshing ? (
                 <>
@@ -178,11 +182,11 @@ export default function Home() {
               )}
             </button>
 
-            {/* 🌟 탭 스위치 UI (모바일 앱 스타일) */}
+            {/* 탭 스위치 UI */}
             <div className="flex bg-gray-200 p-1 rounded-xl shadow-inner">
               <button
                 onClick={() => setActiveTab('random')}
-                className={`flex-1 py-2.5 text-xs font-bold rounded-lg transition-all duration-200 ease-in-out ${
+                className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all duration-200 ease-in-out ${
                   activeTab === 'random' 
                     ? 'bg-white text-red-600 shadow-sm transform scale-100' 
                     : 'text-gray-500 hover:text-gray-700'
@@ -192,7 +196,7 @@ export default function Home() {
               </button>
               <button
                 onClick={() => setActiveTab('top3')}
-                className={`flex-1 py-2.5 text-xs font-bold rounded-lg transition-all duration-200 ease-in-out ${
+                className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all duration-200 ease-in-out ${
                   activeTab === 'top3' 
                     ? 'bg-white text-orange-500 shadow-sm transform scale-100' 
                     : 'text-gray-500 hover:text-gray-700'
@@ -202,8 +206,8 @@ export default function Home() {
               </button>
             </div>
 
-            {/* 🌟 탭 콘텐츠 영역 */}
-            <div className="pt-2">
+            {/* 탭 콘텐츠 영역 (상단 패딩 제거) */}
+            <div>
               
               {/* 랜덤 추천 탭 콘텐츠 */}
               {activeTab === 'random' && (
