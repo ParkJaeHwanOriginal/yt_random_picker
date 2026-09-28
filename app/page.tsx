@@ -14,6 +14,7 @@ export default function Home() {
   const [displayVideos, setDisplayVideos] = useState<VideoItem[]>([]);
   const [topVideos, setTopVideos] = useState<VideoItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const initApp = async () => {
     if (typeof window === "undefined") return;
@@ -27,18 +28,19 @@ export default function Home() {
     if (localData && localData.length > 0) {
       setVideos(localData);
       pickRandom(localData);
-      fetchTopVideos(localData); // 로컬 데이터로 바로 Top 3 계산
+      fetchTopVideos(localData);
       setLoading(false);
     } else {
       setLoading(true);
     }
 
     try {
-      const countRes = await fetch(`/api/youtube?type=checkCount&mode=${mode}`);
+      // ⭐ 브라우저 캐싱을 막기 위해 { cache: 'no-store' } 추가
+      const countRes = await fetch(`/api/youtube?type=checkCount&mode=${mode}`, { cache: 'no-store' });
       const { count } = await countRes.json();
 
       if (!localData || localData.length !== count) {
-        const listRes = await fetch(`/api/youtube?type=fetchAll&mode=${mode}`);
+        const listRes = await fetch(`/api/youtube?type=fetchAll&mode=${mode}`, { cache: 'no-store' });
         const newList: VideoItem[] = await listRes.json();
         
         localStorage.setItem("dowon_videos", JSON.stringify(newList));
@@ -53,22 +55,21 @@ export default function Home() {
       console.error("Sync Error:", e);
     } finally {
       setLoading(false);
+      setIsRefreshing(false);
     }
   };
 
-  // 서버에서 Top 3 ID를 가져와서 전체 리스트와 매칭
   const fetchTopVideos = async (fullList: VideoItem[]) => {
     try {
-      const res = await fetch('/api/youtube?type=getTop');
+      // ⭐ Top 3 데이터도 캐싱 금지
+      const res = await fetch('/api/youtube?type=getTop', { cache: 'no-store' });
       const topIds: string[] = await res.json();
 
       if (topIds.length > 0) {
-        // 서버에서 받아온 ID 순서대로 실제 영상 데이터 매핑
         const matchedTop = topIds
           .map(id => fullList.find(v => v.id === id))
           .filter(v => v !== undefined) as VideoItem[];
         
-        // 만약 DB 기록이 3개가 안 된다면, 모자란 만큼 최신 영상으로 채움
         if (matchedTop.length < 3) {
           const needed = 3 - matchedTop.length;
           const fallback = fullList.filter(v => !topIds.includes(v.id)).slice(0, needed);
@@ -77,11 +78,9 @@ export default function Home() {
           setTopVideos(matchedTop);
         }
       } else {
-        // 기록이 아예 없으면 가장 최신 영상 3개로 대체
         setTopVideos(fullList.slice(0, 3));
       }
     } catch (e) {
-      // 통신 실패 시에도 최신 영상 3개 대체
       setTopVideos(fullList.slice(0, 3));
     }
   };
@@ -103,16 +102,20 @@ export default function Home() {
     setDisplayVideos(selected);
   };
 
-const handleVideoClick = async (videoId: string) => {
+  const handleVideoClick = async (videoId: string) => {
     try {
-      // 서버에 클릭 수 증가 요청을 먼저 확실히 보냅니다.
       await fetch(`/api/youtube?type=increment&videoId=${videoId}`);
     } catch (error) {
       console.error("카운트 증가 에러:", error);
     } finally {
-      // 통신이 완료되면(성공하든 실패하든) 유튜브로 이동합니다.
       window.location.href = `https://www.youtube.com/watch?v=${videoId}`;
     }
+  };
+
+  // 수동 새로고침 버튼 핸들러
+  const handleRefresh = () => {
+    setIsRefreshing(true);
+    initApp();
   };
 
   useEffect(() => {
@@ -123,9 +126,20 @@ const handleVideoClick = async (videoId: string) => {
 
   return (
     <main className="min-h-screen bg-gray-50 flex flex-col items-center p-4 pb-20 text-gray-900">
-      <div className="w-full max-w-md mt-6 space-y-8">
+      <div className="w-full max-w-md mt-6 space-y-8 relative">
         
-        <header className="text-center space-y-2">
+        {/* ⭐ 우측 상단 새로고침 버튼 */}
+        <button 
+          onClick={handleRefresh}
+          className={`absolute top-0 right-2 p-2 text-gray-400 hover:text-red-500 transition-all ${isRefreshing ? 'animate-spin text-red-500' : 'active:rotate-180'}`}
+          aria-label="새로고침"
+        >
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+        </button>
+
+        <header className="text-center space-y-2 pt-2">
           <h1 className="text-3xl font-black text-red-600 tracking-tighter italic">이도원 랜덤 피커</h1>
           
           {latestVideo ? (
@@ -158,7 +172,6 @@ const handleVideoClick = async (videoId: string) => {
           </div>
         ) : (
           <div className="space-y-8">
-            {/* 랜덤 믹스 섹션 */}
             <div className="space-y-4">
               <button 
                 onClick={() => pickRandom(videos)}
@@ -193,7 +206,6 @@ const handleVideoClick = async (videoId: string) => {
 
             <hr className="border-gray-200" />
 
-            {/* 명예의 전당 (Top 3) 섹션 */}
             {topVideos.length > 0 && (
               <div className="space-y-3">
                 <div className="flex items-center justify-between px-1">
