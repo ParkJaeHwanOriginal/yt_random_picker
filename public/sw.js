@@ -1,4 +1,3 @@
-public/icons/icon-192.png
 self.addEventListener('push', function (event) {
   if (event.data) {
     const data = event.data.json();
