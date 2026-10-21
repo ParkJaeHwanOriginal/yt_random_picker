@@ -15,11 +15,45 @@ export default function Home() {
   const [topVideos, setTopVideos] = useState<VideoItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  
   const [activeTab, setActiveTab] = useState<'random' | 'top3'>('random');
+  
+  // 알림 구독 상태 관리
+  const [subscription, setSubscription] = useState<PushSubscription | null>(null);
+  const [pushStatus, setPushStatus] = useState<string>("알림 권한 확인 중...");
+
+  // VAPID 키 변환 함수
+  const urlBase64ToUint8Array = (base64String: string) => {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+    const rawData = window.atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+    for (let i = 0; i < rawData.length; ++i) {
+      outputArray[i] = rawData.charCodeAt(i);
+    }
+    return outputArray;
+  };
 
   const initApp = async () => {
     if (typeof window === "undefined") return;
+
+    // 서비스 워커 등록 및 구독 상태 확인
+    if ('serviceWorker' in navigator && 'PushManager' in window) {
+      try {
+        const registration = await navigator.serviceWorker.register('/sw.js');
+        const sub = await registration.pushManager.getSubscription();
+        if (sub) {
+          setSubscription(sub);
+          setPushStatus("알림 수신 중 🔔");
+        } else {
+          setPushStatus("알림 수신 설정하기");
+        }
+      } catch (err) {
+        console.error("SW Registration failed:", err);
+        setPushStatus("알림 지원 불가 기기");
+      }
+    } else {
+      setPushStatus("알림 지원 불가 브라우저");
+    }
 
     const isPWA = window.matchMedia('(display-mode: standalone)').matches;
     const mode = isPWA ? "pwa" : "browser";
@@ -57,6 +91,40 @@ export default function Home() {
     } finally {
       setLoading(false);
       setIsRefreshing(false);
+    }
+  };
+
+  const subscribeToPush = async () => {
+    if (!('serviceWorker' in navigator)) return;
+    try {
+      const registration = await navigator.serviceWorker.ready;
+      const sub = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!)
+      });
+      setSubscription(sub);
+      setPushStatus("알림 수신 중 🔔");
+      alert("알림 설정이 완료되었습니다!");
+    } catch (error) {
+      console.error("Subscription error:", error);
+      alert("알림 권한을 허용해야 합니다.");
+    }
+  };
+
+  const sendTestPush = async () => {
+    if (!subscription) return alert("먼저 알림 설정을 완료해주세요.");
+    try {
+      await fetch('/api/push', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          subscription,
+          title: "🚀 테스트 알림",
+          body: "이도원 피커 알림 테스트가 성공적으로 도착했습니다!"
+        }),
+      });
+    } catch (error) {
+      console.error("Push test error:", error);
     }
   };
 
@@ -124,19 +192,14 @@ export default function Home() {
   const latestVideo = videos.length > 0 ? videos[0] : null;
 
   return (
-    // 하단 패딩(pb) 축소: pb-20 -> pb-8
     <main className="min-h-screen bg-gray-50 flex flex-col items-center p-4 pb-8 text-gray-900 overflow-hidden">
-      {/* 전체 섹션 간격(space-y) 축소: mt-6 -> mt-4, space-y-8 -> space-y-5 */}
       <div className="w-full max-w-md mt-4 space-y-5 relative">
-        
-        {/* 헤더 섹션 간격 축소: space-y-2 -> space-y-1 */}
         <header className="text-center space-y-1 pt-1">
           <h1 className="text-3xl font-black text-red-600 tracking-tighter italic">이도원 랜덤 피커</h1>
           
           {latestVideo ? (
             <div 
               onClick={() => handleVideoClick(latestVideo.id)}
-              // 상단 여백 축소: mt-4 -> mt-2
               className="mt-2 text-left bg-white rounded-2xl flex overflow-hidden shadow-sm border border-red-100 cursor-pointer active:scale-[0.98] transition-all hover:shadow-md hover:border-red-200"
             >
               <div className="relative w-1/3 flex-shrink-0">
@@ -163,10 +226,7 @@ export default function Home() {
             <p className="text-gray-400 font-bold text-xs uppercase animate-pulse tracking-widest">Database Syncing...</p>
           </div>
         ) : (
-          // 메인 콘텐츠 간격 축소: space-y-6 -> space-y-4
           <div className="space-y-4">
-            
-            {/* 🌟 메인 버튼 높이 및 폰트 축소: p-4 -> py-3, text-xl -> text-lg */}
             <button 
               onClick={handleRefresh}
               disabled={isRefreshing}
@@ -182,14 +242,11 @@ export default function Home() {
               )}
             </button>
 
-            {/* 탭 스위치 UI */}
             <div className="flex bg-gray-200 p-1 rounded-xl shadow-inner">
               <button
                 onClick={() => setActiveTab('random')}
                 className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all duration-200 ease-in-out ${
-                  activeTab === 'random' 
-                    ? 'bg-white text-red-600 shadow-sm transform scale-100' 
-                    : 'text-gray-500 hover:text-gray-700'
+                  activeTab === 'random' ? 'bg-white text-red-600 shadow-sm transform scale-100' : 'text-gray-500 hover:text-gray-700'
                 }`}
               >
                 🎲 랜덤 추천
@@ -197,19 +254,14 @@ export default function Home() {
               <button
                 onClick={() => setActiveTab('top3')}
                 className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all duration-200 ease-in-out ${
-                  activeTab === 'top3' 
-                    ? 'bg-white text-orange-500 shadow-sm transform scale-100' 
-                    : 'text-gray-500 hover:text-gray-700'
+                  activeTab === 'top3' ? 'bg-white text-orange-500 shadow-sm transform scale-100' : 'text-gray-500 hover:text-gray-700'
                 }`}
               >
                 🏆 Top 3 랭킹
               </button>
             </div>
 
-            {/* 탭 콘텐츠 영역 (상단 패딩 제거) */}
             <div>
-              
-              {/* 랜덤 추천 탭 콘텐츠 */}
               {activeTab === 'random' && (
                 <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
                   <div className="grid grid-cols-2 gap-3">
@@ -234,7 +286,6 @@ export default function Home() {
                 </div>
               )}
 
-              {/* 명예의 전당 (Top 3) 탭 콘텐츠 */}
               {activeTab === 'top3' && topVideos.length > 0 && (
                 <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 space-y-3">
                   <div className="grid grid-cols-1 gap-3">
@@ -258,6 +309,31 @@ export default function Home() {
                   </div>
                 </div>
               )}
+            </div>
+
+            {/* 🌟 알림 테스트 UI 섹션 */}
+            <div className="mt-6 p-4 bg-gray-100 rounded-xl space-y-3">
+              <div className="flex justify-between items-center">
+                <p className="text-xs font-bold text-gray-600">🔔 알림 상태</p>
+                <span className="text-xs text-red-500 font-bold">{pushStatus}</span>
+              </div>
+              <div className="flex gap-2">
+                {!subscription && (
+                  <button 
+                    onClick={subscribeToPush}
+                    className="flex-1 bg-gray-800 text-white py-2 rounded-lg text-xs font-bold active:scale-95 transition-all"
+                  >
+                    알림 설정 허용
+                  </button>
+                )}
+                <button 
+                  onClick={sendTestPush}
+                  className="flex-1 bg-blue-500 text-white py-2 rounded-lg text-xs font-bold active:scale-95 transition-all disabled:opacity-50"
+                  disabled={!subscription}
+                >
+                  테스트 발송
+                </button>
+              </div>
             </div>
 
           </div>
