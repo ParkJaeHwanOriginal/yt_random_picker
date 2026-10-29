@@ -34,6 +34,7 @@ export default function Home() {
   };
 
 const initApp = async () => {
+    // 1. 알림 권한 및 서비스 워커 동기화
     if ('serviceWorker' in navigator) {
       const registration = await navigator.serviceWorker.register('/sw.js');
       const sub = await registration.pushManager.getSubscription();
@@ -41,7 +42,6 @@ const initApp = async () => {
         setSubscription(sub);
         setPushStatus("알림 수신 중 🔔");
         
-        // 기존 구독권이 발견되면 무조건 서버 DB로 전송 (Redis Set 구조라 중복 저장은 알아서 방지됨)
         fetch('/api/subscribe', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -49,8 +49,8 @@ const initApp = async () => {
         }).catch(console.error);
       }
     }
-  };
 
+    // 2. 유튜브 영상 데이터 갱신 로직 (initApp 함수 내부에 있어야 함)
     const isPWA = window.matchMedia('(display-mode: standalone)').matches;
     const mode = isPWA ? "pwa" : "browser";
 
@@ -88,7 +88,7 @@ const initApp = async () => {
       setLoading(false);
       setIsRefreshing(false);
     }
-  };
+  }; // <--- 여기서 정상적으로 함수가 닫힙니다.
 
 const subscribeToPush = async () => {
     if (!('serviceWorker' in navigator)) return;
