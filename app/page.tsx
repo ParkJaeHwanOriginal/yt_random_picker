@@ -33,27 +33,23 @@ export default function Home() {
     return outputArray;
   };
 
-  const initApp = async () => {
-    if (typeof window === "undefined") return;
-
-    // 서비스 워커 등록 및 구독 상태 확인
-    if ('serviceWorker' in navigator && 'PushManager' in window) {
-      try {
-        const registration = await navigator.serviceWorker.register('/sw.js');
-        const sub = await registration.pushManager.getSubscription();
-        if (sub) {
-          setSubscription(sub);
-          setPushStatus("알림 수신 중 🔔");
-        } else {
-          setPushStatus("알림 수신 설정하기");
-        }
-      } catch (err) {
-        console.error("SW Registration failed:", err);
-        setPushStatus("알림 지원 불가 기기");
+const initApp = async () => {
+    if ('serviceWorker' in navigator) {
+      const registration = await navigator.serviceWorker.register('/sw.js');
+      const sub = await registration.pushManager.getSubscription();
+      if (sub) {
+        setSubscription(sub);
+        setPushStatus("알림 수신 중 🔔");
+        
+        // 기존 구독권이 발견되면 무조건 서버 DB로 전송 (Redis Set 구조라 중복 저장은 알아서 방지됨)
+        fetch('/api/subscribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ subscription: sub }),
+        }).catch(console.error);
       }
-    } else {
-      setPushStatus("알림 지원 불가 브라우저");
     }
+  };
 
     const isPWA = window.matchMedia('(display-mode: standalone)').matches;
     const mode = isPWA ? "pwa" : "browser";
