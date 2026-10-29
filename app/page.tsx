@@ -94,7 +94,7 @@ export default function Home() {
     }
   };
 
-  const subscribeToPush = async () => {
+const subscribeToPush = async () => {
     if (!('serviceWorker' in navigator)) return;
     try {
       const registration = await navigator.serviceWorker.ready;
@@ -102,9 +102,17 @@ export default function Home() {
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!)
       });
+      
+      // 1. 발급받은 구독권을 우리 Redis 서버 API로 전송하여 명단에 저장
+      await fetch('/api/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subscription: sub }),
+      });
+
       setSubscription(sub);
       setPushStatus("알림 수신 중 🔔");
-      alert("알림 설정이 완료되었습니다!");
+      alert("알림 설정이 완료되어 서버 명단에 등록되었습니다!");
     } catch (error) {
       console.error("Subscription error:", error);
       alert("알림 권한을 허용해야 합니다.");
@@ -112,17 +120,21 @@ export default function Home() {
   };
 
   const sendTestPush = async () => {
-    if (!subscription) return alert("먼저 알림 설정을 완료해주세요.");
     try {
-      await fetch('/api/push', {
+      // 2. 이제 개별 구독권(subscription)을 넘기지 않음. 서버가 DB에서 다 꺼내서 발송함.
+      const res = await fetch('/api/push', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          subscription,
-          title: "🚀 테스트 알림",
-          body: "이도원 피커 알림 테스트가 성공적으로 도착했습니다!"
+          title: "🚀 DB 연동 전체 발송 테스트",
+          body: "이 알림은 명단에 있는 모든 기기로 동시에 발송됩니다!"
         }),
       });
+      
+      const data = await res.json();
+      if(data.success) {
+        alert(`총 ${data.count}대의 기기로 알림을 쐈습니다!`);
+      }
     } catch (error) {
       console.error("Push test error:", error);
     }
